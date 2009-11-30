@@ -252,7 +252,7 @@ class Cpu:
             self.memory.write(self.memory.read(self._I[0]+2), self._reg[n2] % 10)
         elif n1 == 0xf and n3 == 0x5 and n4 == 0x5: # FX55 Save V0...VX in memory starting at M(I)
             for i in range(n2 + 1):
-                self.memory.write(self.memory.read(self._I[0] + i, self._reg[i]))
+                self.memory.write(self.memory.read(self._I[0] + i), self._reg[i])
         elif n1 == 0xf and n3 == 0x6 and n4 == 0x5: # FX65 Load V0...VX from memory starting at M(I)
             for i in range(n2 + 1):
                 self._reg[i] = self.memory.read(self._I[0] + i) & 0xff

@@ -25,15 +25,14 @@ class Memory:
     def __init__(self):
         # Memory
         self._memory = array.array('B') # creating an array of unsigned chars
-        #self._rom_ptr = 0x200           # This is where we will put the rom
 
         # Inserting the font data. Starting in memory position 0
         # 0
-        self._memory.append(0xf0) #1111 0000
-        self._memory.append(0x90) #1001 0000
-        self._memory.append(0x90) #1001 0000
-        self._memory.append(0x90) #1001 0000
-        self._memory.append(0xf0) #1111 0000
+        self._memory.append(0b11110000)
+        self._memory.append(0b10010000)
+        self._memory.append(0b10010000)
+        self._memory.append(0b10010000)
+        self._memory.append(0b11110000)
         # 1
         self._memory.append(0x20) #0010 0000
         self._memory.append(0x60) #0110 0000

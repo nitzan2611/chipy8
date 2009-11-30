@@ -19,12 +19,15 @@
 #* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 import pygame
 import os
+import sys
 import array
 import random
 from memory import Memory
 
 class Cpu:
-    def __init__(self):
+    def __init__(self, verbose):
+        #
+        self._verbose = verbose
         # CPU properties
         # 16 general purpose 8-bit registers
         self._reg = array.array('B', [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0])
@@ -38,13 +41,15 @@ class Cpu:
         self._PC = array.array('H', [0x0200])
         # Memory
         self.memory = Memory()
+        # Key states
+        self._keystate = array.array('B', [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0])        
 
-        # other properties
-        self.__fps = 60
+        # private properties
+        self.__ips = 60
         self.__color_on = (0, 0, 0) # Black
         self.__color_off = (255, 255, 255) # White
         
-        # Setup the environment
+        # Setup the pygame environment
         pygame.init()
         os.environ['SDL_VIDEO_CENTERED'] = '1'
         self.window = pygame.display.set_mode((64, 32))
@@ -52,51 +57,15 @@ class Cpu:
         self.clock = pygame.time.Clock()
         self._screen = pygame.display.get_surface() # get the display surface representing a screen
         self._pxarray = pygame.PixelArray(self._screen)
-        self.erase()
+        self.erase()    # Call this to make sure we have the correct background color
     
-    def key_value(self, key):
-        value = -1
-        if key == pygame.K_0:
-            value = 0
-        elif key == pygame.K_1:
-            value = 1
-        elif key == pygame.K_2:
-            value = 2
-        elif key == pygame.K_3:
-            value = 3
-        elif key == pygame.K_4:
-            value = 4
-        elif key == pygame.K_5:
-            value = 5
-        elif key == pygame.K_6:
-            value = 6
-        elif key == pygame.K_7:
-            value = 7
-        elif key == pygame.K_8:
-            value = 8
-        elif key == pygame.K_9:
-            value = 9
-        elif key == pygame.K_a:
-            value = 0xa
-        elif key == pygame.K_b:
-            value = 0xb
-        elif key == pygame.K_c:
-            value = 0xc
-        elif key == pygame.K_d:
-            value = 0xd
-        elif key == pygame.K_e:
-            value = 0xe
-        elif key == pygame.K_f:
-            value = 0xf
-        return value
-
     def execute(self):
         word = (self.memory.read(self._PC[0]) << 8) | (self.memory.read(self._PC[0] + 1))
         n1 = (word >> 12) & 0x0f
         n2 = (word >> 8) & 0x0f
         n3 = (word >> 4) & 0x0f
         n4 = word & 0x0f
-        print "Opcode: %x" % (word)
+        if self._verbose: print "Opcode: %x" % (word)
         self._PC[0] = self._PC[0] + 2
         
         if n1 == 0x0:
@@ -204,7 +173,6 @@ class Cpu:
             sys.exit(1)
         elif n1 == 0xd: # DXYN Draws a sprite at (VX,VY) starting at M(I). VF = collision. If N=0, draws the 16 x 16 sprite, else an 8 x N sprite.
             self._reg[0xf] = 0
-            print "%x - %x" % (self._reg[n2], self._reg[n3])
             for yline in range(n4):
                 byte = self.memory.read(self._I[0] + yline)
                 for xline in range(8):
@@ -218,26 +186,21 @@ class Cpu:
                             self._pxarray[x][y] = self.__color_on
             pygame.display.flip()
         elif n1 == 0xe and n3 == 0x9 and n4 == 0xe: # EX9E skip next instruction if key VX pressed
-            event = pygame.event.poll()
-            if event.type != pygame.NOEVENT:
-                if key_value(event.key) == self._reg[n2]:
-                    self._PC[0] = self._PC[0] + 2
-        elif n1 == 0xe and n3 == 0xa and n4 == 0x1: # EXA1 Skip next instruction if key VX not pressed
-            event = pygame.event.poll()
-            if event.type == pygame.NOEVENT:
+            if self._keystate[n2] == 1:
                 self._PC[0] = self._PC[0] + 2
-            elif key_value(event.key) != self._reg[n2]:
+        elif n1 == 0xe and n3 == 0xa and n4 == 0x1: # EXA1 Skip next instruction if key VX not pressed
+            if self._keystate[n2] != 1:
                 self._PC[0] = self._PC[0] + 2
         elif n1 == 0xf and n3 == 0x0 and n4 == 0x7: # FX07 VX = Delay timer
             self._reg[n2] = self._timer[0] & 0xff
         elif n1 == 0xf and n3 == 0x0 and n4 == 0xa: # FX0A Waits a keypress and stores it in VX
-            while True:
-                event = pygame.event.wait()
-                if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
-                    sys.exit(1)
-                if self.key_value(event.key) >= 0:
-                    self._reg[n2] = self.key_value(event.key)
-                    break
+            quit = False
+            while not quit:
+                for i in range(16):
+                    if self._keystate[i] == 1:
+                        self._reg[n2] = i
+                        quit = True
+                self.handle_input()
         elif n1 == 0xf and n3 == 0x1 and n4 == 0x5: # FX15 Delay timer = VX
             self._timer[0] = self._reg[n2] & 0xff
         elif n1 == 0xf and n3 == 0x1 and n4 == 0x8: # FX18 Sound timer = VX
@@ -274,14 +237,79 @@ class Cpu:
     def read_rom(self, filename):
         self.memory.read_rom(filename)
 
-    def input(self, events): 
+    def handle_input(self):
+        events = pygame.event.get()
         for event in events: 
+            if self._verbose: print event 
             if event.type == pygame.QUIT:
                 sys.exit(0)
             elif event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
                 sys.exit(0)
-            else:
-                print event 
+            elif event.type == pygame.KEYDOWN and event.key == pygame.K_0:
+                self._keystate[0x0] = 1
+            elif event.type == pygame.KEYDOWN and event.key == pygame.K_1:
+                self._keystate[0x1] = 1
+            elif event.type == pygame.KEYDOWN and event.key == pygame.K_2:
+                self._keystate[0x2] = 1
+            elif event.type == pygame.KEYDOWN and event.key == pygame.K_3:
+                self._keystate[0x3] = 1
+            elif event.type == pygame.KEYDOWN and event.key == pygame.K_4:
+                self._keystate[0x4] = 1
+            elif event.type == pygame.KEYDOWN and event.key == pygame.K_5:
+                self._keystate[0x5] = 1
+            elif event.type == pygame.KEYDOWN and event.key == pygame.K_6:
+                self._keystate[0x6] = 1
+            elif event.type == pygame.KEYDOWN and event.key == pygame.K_7:
+                self._keystate[0x7] = 1
+            elif event.type == pygame.KEYDOWN and event.key == pygame.K_8:
+                self._keystate[0x8] = 1
+            elif event.type == pygame.KEYDOWN and event.key == pygame.K_9:
+                self._keystate[0x9] = 1
+            elif event.type == pygame.KEYDOWN and event.key == pygame.K_a:
+                self._keystate[0xa] = 1
+            elif event.type == pygame.KEYDOWN and event.key == pygame.K_b:
+                self._keystate[0xb] = 1
+            elif event.type == pygame.KEYDOWN and event.key == pygame.K_c:
+                self._keystate[0xc] = 1
+            elif event.type == pygame.KEYDOWN and event.key == pygame.K_d:
+                self._keystate[0xd] = 1
+            elif event.type == pygame.KEYDOWN and event.key == pygame.K_e:
+                self._keystate[0xe] = 1
+            elif event.type == pygame.KEYDOWN and event.key == pygame.K_f:
+                self._keystate[0xf] = 1
+            elif event.type == pygame.KEYDOWN and event.key == pygame.K_0:
+                self._keystate[0x0] = 0
+            elif event.type == pygame.KEYUP and event.key == pygame.K_1:
+                self._keystate[0x1] = 0
+            elif event.type == pygame.KEYUP and event.key == pygame.K_2:
+                self._keystate[0x2] = 0
+            elif event.type == pygame.KEYUP and event.key == pygame.K_3:
+                self._keystate[0x3] = 0
+            elif event.type == pygame.KEYUP and event.key == pygame.K_4:
+                self._keystate[0x4] = 0
+            elif event.type == pygame.KEYUP and event.key == pygame.K_5:
+                self._keystate[0x5] = 0
+            elif event.type == pygame.KEYUP and event.key == pygame.K_6:
+                self._keystate[0x6] = 0
+            elif event.type == pygame.KEYUP and event.key == pygame.K_7:
+                self._keystate[0x7] = 0
+            elif event.type == pygame.KEYUP and event.key == pygame.K_8:
+                self._keystate[0x8] = 0
+            elif event.type == pygame.KEYUP and event.key == pygame.K_9:
+                self._keystate[0x9] = 0
+            elif event.type == pygame.KEYUP and event.key == pygame.K_a:
+                self._keystate[0xa] = 0
+            elif event.type == pygame.KEYUP and event.key == pygame.K_b:
+                self._keystate[0xb] = 0
+            elif event.type == pygame.KEYUP and event.key == pygame.K_c:
+                self._keystate[0xc] = 0
+            elif event.type == pygame.KEYUP and event.key == pygame.K_d:
+                self._keystate[0xd] = 0
+            elif event.type == pygame.KEYUP and event.key == pygame.K_e:
+                self._keystate[0xe] = 0
+            elif event.type == pygame.KEYUP and event.key == pygame.K_f:
+                self._keystate[0xf] = 0
+            if self._verbose: print self._keystate
 
     def erase(self):
         for x in range (64):
@@ -289,10 +317,10 @@ class Cpu:
                 self._pxarray[x][y] = self.__color_off
         pygame.display.flip()
 
-    def run(self, fps = 60):
-        self.__fps = fps
+    def run(self, ips = 60):
+        self.__ips = ips
         while True:
-            self.clock.tick(self.__fps)
-            self.input(pygame.event.get())
+            self.clock.tick(self.__ips)
+            self.handle_input()
             self.execute()
 

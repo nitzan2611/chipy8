@@ -28,7 +28,7 @@ usage = "usage: '%prog [options] GAME'\n\n"
 usage += "chipy8 is a Chip8 emulator written in Python using pygame.\n"
 parser = OptionParser(usage, version=ver)
 parser.add_option('-v', '--verbose', action='store_true', dest='verbose', default=False, help='Print debug information')
-parser.add_option('-f', '--fps', action='store', dest='fps', type='float', default=60, help='Frames / second')
+parser.add_option('-i', '--ips', action='store', dest='ips', type='float', default=60, help='How many instructions to execute each second')
 (options, args) = parser.parse_args()
 if len(args) != 1:
     parser.error("Wrong number of arguments specified")
@@ -39,7 +39,7 @@ else:
         if os.path.getsize(args[0]) > 0x0fff:
             parser.error("File to large")
     
-cpu = Cpu()
+cpu = Cpu(options.verbose)
 cpu.read_rom(args[0])
-cpu.run(options.fps)
+cpu.run(options.ips)
 

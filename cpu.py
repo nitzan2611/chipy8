@@ -54,39 +54,39 @@ class Cpu:
         self._pxarray = pygame.PixelArray(self._screen)
         self.erase()
     
-    def key_value(key):
+    def key_value(self, key):
         value = -1
-        if key == K_0:
+        if key == pygame.K_0:
             value = 0
-        elif key == K_1:
+        elif key == pygame.K_1:
             value = 1
-        elif key == K_2:
+        elif key == pygame.K_2:
             value = 2
-        elif key == K_3:
+        elif key == pygame.K_3:
             value = 3
-        elif key == K_4:
+        elif key == pygame.K_4:
             value = 4
-        elif key == K_5:
+        elif key == pygame.K_5:
             value = 5
-        elif key == K_6:
+        elif key == pygame.K_6:
             value = 6
-        elif key == K_7:
+        elif key == pygame.K_7:
             value = 7
-        elif key == K_8:
+        elif key == pygame.K_8:
             value = 8
-        elif key == K_9:
+        elif key == pygame.K_9:
             value = 9
-        elif key == K_a:
+        elif key == pygame.K_a:
             value = 0xa
-        elif key == K_b:
+        elif key == pygame.K_b:
             value = 0xb
-        elif key == K_c:
+        elif key == pygame.K_c:
             value = 0xc
-        elif key == K_d:
+        elif key == pygame.K_d:
             value = 0xd
-        elif key == K_e:
+        elif key == pygame.K_e:
             value = 0xe
-        elif key == K_f:
+        elif key == pygame.K_f:
             value = 0xf
         return value
 
@@ -235,7 +235,7 @@ class Cpu:
                 event = pygame.event.wait()
                 if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
                     sys.exit(1)
-                if key_value(event.key) >= 0:
+                if self.key_value(event.key) >= 0:
                     self._reg[n2] = self.key_value(event.key)
                     break
         elif n1 == 0xf and n3 == 0x1 and n4 == 0x5: # FX15 Delay timer = VX

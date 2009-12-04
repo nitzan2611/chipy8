@@ -23,6 +23,7 @@ import sys
 import array
 import random
 from memory import Memory
+from video import Video
 
 class Cpu:
     def __init__(self, verbose):
@@ -41,23 +42,14 @@ class Cpu:
         self._PC = array.array('H', [0x0200])
         # Memory
         self.memory = Memory()
+        # Video
+        self.video = Video()
         # Key states
         self._keystate = array.array('B', [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0])        
 
         # private properties
         self.__ips = 60
-        self.__color_on = (0, 0, 0) # Black
-        self.__color_off = (255, 255, 255) # White
-        
-        # Setup the pygame environment
-        pygame.init()
-        os.environ['SDL_VIDEO_CENTERED'] = '1'
-        self.window = pygame.display.set_mode((64, 32))
-        pygame.display.set_caption('pyC8')
         self.clock = pygame.time.Clock()
-        self._screen = pygame.display.get_surface() # get the display surface representing a screen
-        self._pxarray = pygame.PixelArray(self._screen)
-        self.erase()    # Call this to make sure we have the correct background color
     
     def execute(self):
         word = (self.memory.read(self._PC[0]) << 8) | (self.memory.read(self._PC[0] + 1))
@@ -88,9 +80,9 @@ class Cpu:
                     print "TODO: not implemented"
                     sys.exit(1)
                 elif n3 == 0xe and n4 == 0x0: # 00E0 Erase the screen
-                    self.erase()
+                    self.video.erase()
                 elif n3 == 0xe and n4 == 0xe: # 00EE Return from a CHIP-8 sub-routine
-                    self._PC[0] = stack.pop()
+                    self._PC[0] = self._stack.pop()
                 else:
                     print "Error %2x%2x%2x%2x" % (n1,n2,n3,n4)
                     sys.exit(1)
@@ -100,7 +92,7 @@ class Cpu:
         elif n1 == 0x1: # 1NNN Jump to NNN
             self._PC[0] = word & 0x0fff
         elif n1 == 0x2: # 2NNN Call CHIP-8 sub-routine at NNN (16 successive calls max)
-            self.stack.append(self._PC[0])
+            self._stack.append(self._PC[0])
             self._PC[0] = word & 0x0fff
         elif n1 == 0x3: # 3XKK	Skip next instruction if VX == KK
             if self._reg[n2] == (word & 0x00ff):
@@ -172,19 +164,10 @@ class Cpu:
             print "TODO: not implemented"
             sys.exit(1)
         elif n1 == 0xd: # DXYN Draws a sprite at (VX,VY) starting at M(I). VF = collision. If N=0, draws the 16 x 16 sprite, else an 8 x N sprite.
-            self._reg[0xf] = 0
-            for yline in range(n4):
-                byte = self.memory.read(self._I[0] + yline)
-                for xline in range(8):
-                    if (byte & (0x80>>xline)) != 0:
-                        x = (self._reg[n2] + xline) % 64
-                        y = (self._reg[n3] + yline) % 32
-                        if self._pxarray[x][y] == self.__color_on:
-                            self._pxarray[x][y] = self.__color_off
-                            self._reg[0xf] = 1
-                        else:
-                            self._pxarray[x][y] = self.__color_on
-            pygame.display.flip()
+            ylines = array.array('B')
+            for i in range (n4):
+                ylines.append(self.memory.read(self._I[0] + i))
+            self._reg[0xf] = self.video.draw8(ylines, self._reg[n2], self._reg[n3])
         elif n1 == 0xe and n3 == 0x9 and n4 == 0xe: # EX9E skip next instruction if key VX pressed
             if self._keystate[n2] == 1:
                 self._PC[0] = self._PC[0] + 2
@@ -310,12 +293,6 @@ class Cpu:
             elif event.type == pygame.KEYUP and event.key == pygame.K_f:
                 self._keystate[0xf] = 0
             if self._verbose: print self._keystate
-
-    def erase(self):
-        for x in range (64):
-            for y in range (32):
-                self._pxarray[x][y] = self.__color_off
-        pygame.display.flip()
 
     def run(self, ips = 60):
         self.__ips = ips

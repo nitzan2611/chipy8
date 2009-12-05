@@ -25,7 +25,8 @@ import Numeric
 from pygame import surfarray
 
 class Video:
-    def __init__(self, scale = 1):
+    def __init__(self, verbose = False, scale = 1):
+        self.verbose = verbose
         self.scale = scale
         self.arraysize = (64,32)
         self.winsize = (self.arraysize[0] * self.scale, self.arraysize[1] * self.scale)

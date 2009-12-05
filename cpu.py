@@ -43,7 +43,7 @@ class Cpu:
         # Memory
         self.memory = Memory()
         # Video
-        self.video = Video(scale)
+        self.video = Video(verbose, scale)
         # Key states
         self._keystate = array.array('B', [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0])        
 
@@ -193,9 +193,9 @@ class Cpu:
         elif n1 == 0xf and n3 == 0x2 and n4 == 0x9: # FX29	I points to the 4 x 5 font sprite of hex char in VX
             self._I[0] = (self._reg[n2] * 5) & 0xffff
         elif n1 == 0xf and n3 == 0x3 and n4 == 0x3: # FX33 Store BCD representation of VX in M(I)...M(I+2)
-            self.memory.write(self.memory.read(self._I[0]), self._reg[n2] / 100)
-            self.memory.write(self.memory.read(self._I[0]+1), (self._reg[n2] % 10) / 10)
-            self.memory.write(self.memory.read(self._I[0]+2), self._reg[n2] % 10)
+            self.memory.write(self._I[0], self._reg[n2] / 100)
+            self.memory.write(self._I[0]+1, (self._reg[n2] % 10) / 10)
+            self.memory.write(self._I[0]+2, self._reg[n2] % 10)
         elif n1 == 0xf and n3 == 0x5 and n4 == 0x5: # FX55 Save V0...VX in memory starting at M(I)
             for i in range(n2 + 1):
                 self.memory.write(self.memory.read(self._I[0] + i), self._reg[i])

@@ -26,7 +26,7 @@ from memory import Memory
 from video import Video
 
 class Cpu:
-    def __init__(self, verbose):
+    def __init__(self, verbose, scale):
         #
         self._verbose = verbose
         # CPU properties
@@ -43,7 +43,7 @@ class Cpu:
         # Memory
         self.memory = Memory()
         # Video
-        self.video = Video()
+        self.video = Video(scale)
         # Key states
         self._keystate = array.array('B', [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0])        
 

@@ -20,21 +20,31 @@
 import pygame
 import os
 import sys
+import Numeric
+# for optimizing drawing:
+from pygame import surfarray
 
 class Video:
-    def __init__(self):
+    def __init__(self, scale = 1):
+        self.scale = scale
+        self.arraysize = (64,32)
+        self.winsize = (self.arraysize[0] * self.scale, self.arraysize[1] * self.scale)
         self.__color_on = (0, 0, 0) # Black
-        self.__color_off = (255, 255, 255) # White
+        self.__color_off = (255, 240, 220) # White
+        self.pixel_data = Numeric.zeros( (64,32), 'i' )
         
         # Setup the pygame environment
         pygame.init()
         os.environ['SDL_VIDEO_CENTERED'] = '1'
-        self.window = pygame.display.set_mode((64, 32))
-        pygame.display.set_caption('pyC8')
-        self._screen = pygame.display.get_surface() # get the display surface representing a screen
-        self._pxarray = pygame.PixelArray(self._screen)
-        self.erase()    # Call this to make sure we have the correct background color
-        
+        self.screen = pygame.display.set_mode(self.winsize, 0, 8)
+        self.scale_screen = pygame.surface.Surface(self.arraysize, 0, 8)
+        pygame.display.set_caption('chipy8')
+        self.screen.fill(self.__color_off)
+        self.scale_screen.fill(self.__color_off)
+
+        self.screen.set_palette( [self.__color_off, self.__color_on] )
+        self.scale_screen.set_palette( [self.__color_off, self.__color_on] )
+
     def draw8(self, ylines, regX, regY):
         collision = 0
         yline = 0
@@ -44,18 +54,20 @@ class Video:
                 if (byte & (0x80>>xline)) != 0:
                     x = (regX + xline) % 64
                     y = (regY + yline) % 32
-                    if self._pxarray[x][y] == self.__color_on:
-                        self._pxarray[x][y] = self.__color_off
+                    if self.pixel_data[x][y] == 1:
+                        self.pixel_data[x][y] = 0
                         collision = 1
                     else:
-                        self._pxarray[x][y] = self.__color_on
+                        self.pixel_data[x][y] = 1
             yline = yline + 1
-        pygame.display.flip()
+
+        surfarray.blit_array( self.scale_screen, self.pixel_data )
+        temp = pygame.transform.scale(self.scale_screen, self.screen.get_size())
+        self.screen.blit(temp, (0,0))
+        pygame.display.update()
         return collision
-        
+
     def erase(self):
-        for x in range (64):
-            for y in range (32):
-                self._pxarray[x][y] = self.__color_off
+        self.screen.fill(self.__color_off)
         pygame.display.flip()
 

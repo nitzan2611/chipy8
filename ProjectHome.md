@@ -1,0 +1,1 @@
+Chip8 interpreter written in python using pygame module
